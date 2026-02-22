@@ -1,0 +1,48 @@
+{
+  "name": "klerki",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.6.0",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "convex:dev": "convex dev",
+    "convex:deploy": "convex deploy",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@clerk/nextjs": "6.38.0",
+    "@openai/agents": "0.4.13",
+    "class-variance-authority": "0.7.1",
+    "clsx": "2.1.1",
+    "convex": "1.32.0",
+    "lucide-react": "0.558.0",
+    "next": "16.1.6",
+    "openai": "6.4.0",
+    "pdf-parse": "1.1.1",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "tailwind-merge": "3.3.1",
+    "tesseract.js": "6.0.1",
+    "zod": "4.3.6"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.2.0",
+    "@types/node": "24.5.2",
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.2",
+    "@typescript-eslint/parser": "8.43.0",
+    "@vitejs/plugin-react": "5.0.4",
+    "eslint": "9.35.0",
+    "eslint-config-next": "16.1.6",
+    "tailwindcss": "4.2.0",
+    "typescript": "5.9.3",
+    "vitest": "3.2.4"
+  }
+}

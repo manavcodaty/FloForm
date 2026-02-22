@@ -1,0 +1,97 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --muted: #e2e8f0;
+  --focus: #39b7ad;
+  --primary: #39b7ad;
+  --secondary: #f2c94c;
+  --ring-size: 2px;
+  --text-scale: 1;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background:
+    radial-gradient(circle at 0% 0%, #e6f7f5 0%, transparent 45%),
+    radial-gradient(circle at 100% 0%, #fff6da 0%, transparent 40%),
+    radial-gradient(circle at 50% 100%, #f3f8ff 0%, #f7f9fb 55%, #eef3f7 100%);
+  color: var(--foreground);
+  min-height: 100%;
+}
+
+body {
+  font-family: "IBM Plex Sans", "Avenir Next", "Segoe UI", sans-serif;
+  font-size: calc(16px * var(--text-scale));
+  line-height: calc(1.5 * var(--text-scale));
+}
+
+.mode-large-text {
+  --text-scale: 1.1;
+  --ring-size: 3px;
+}
+
+.mode-high-contrast {
+  --background: #070707;
+  --foreground: #f7f7f7;
+  --card: #121212;
+  --muted: #2a2a2a;
+  --focus: #f4f4f4;
+}
+
+.mode-high-contrast body {
+  background: linear-gradient(170deg, #000000 0%, #111111 60%, #1d1d1d 100%);
+  color: var(--foreground);
+}
+
+.mode-high-contrast .bg-white {
+  background: var(--card) !important;
+}
+
+.mode-high-contrast .text-slate-900,
+.mode-high-contrast .text-slate-800,
+.mode-high-contrast .text-slate-700,
+.mode-high-contrast .text-slate-600,
+.mode-high-contrast .text-slate-500 {
+  color: var(--foreground) !important;
+}
+
+.mode-high-contrast .border,
+.mode-high-contrast .border-slate-200,
+.mode-high-contrast .border-slate-300 {
+  border-color: #4a4a4a !important;
+}
+
+.text-brand-primary {
+  color: var(--primary);
+}
+
+.text-brand-secondary {
+  color: var(--secondary);
+}
+
+.bg-brand-primary {
+  background-color: var(--primary);
+}
+
+.bg-brand-secondary {
+  background-color: var(--secondary);
+}
+
+*:focus-visible {
+  outline: var(--ring-size) solid var(--focus);
+  outline-offset: 2px;
+}
+
+.mode-low-cognitive .animate-pulse,
+.mode-low-cognitive .animate-bounce {
+  animation: none !important;
+}
