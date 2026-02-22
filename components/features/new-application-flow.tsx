@@ -18,6 +18,22 @@ type StreamEvent = {
   message?: string;
 };
 
+async function readErrorMessage(res: Response) {
+  try {
+    const data = await res.json();
+    if (typeof data?.error === "string") return data.error;
+    if (typeof data?.warning === "string") return data.warning;
+    return JSON.stringify(data);
+  } catch {
+    try {
+      const text = await res.text();
+      return text.slice(0, 240);
+    } catch {
+      return "Unknown error";
+    }
+  }
+}
+
 export function NewApplicationFlow() {
   const router = useRouter();
   const [pdfs, setPdfs] = useState<UploadedItem[]>([]);
@@ -41,7 +57,10 @@ export function NewApplicationFlow() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: "Scholarship Application", formType: "scholarship" })
       });
-      if (!appRes.ok) throw new Error("Could not create application");
+      if (!appRes.ok) {
+        const reason = await readErrorMessage(appRes);
+        throw new Error(`Could not create application (${appRes.status}): ${reason}`);
+      }
       const appData = await appRes.json();
       const applicationId = appData.applicationId as string;
 
@@ -52,7 +71,8 @@ export function NewApplicationFlow() {
         formData.append("file", fileItem.file);
         const uploadRes = await fetch("/api/upload", { method: "POST", body: formData });
         if (!uploadRes.ok) {
-          throw new Error(`Upload failed: ${fileItem.file.name}`);
+          const reason = await readErrorMessage(uploadRes);
+          throw new Error(`Upload failed for ${fileItem.file.name} (${uploadRes.status}): ${reason}`);
         }
         const uploadData = await uploadRes.json();
 
@@ -62,6 +82,12 @@ export function NewApplicationFlow() {
           const extractRes = await fetch("/api/extract-text", { method: "POST", body: extractForm });
           if (extractRes.ok) {
             const extracted = await extractRes.json();
+            if (extracted.warning) {
+              setEvents((prev) => [
+                ...prev,
+                { type: "warning", message: `${fileItem.file.name}: ${String(extracted.warning)}` }
+              ]);
+            }
             if (extracted.text && uploadData.documentId) {
               await fetch("/api/documents/attach-text", {
                 method: "POST",
@@ -69,12 +95,18 @@ export function NewApplicationFlow() {
                 body: JSON.stringify({ documentId: uploadData.documentId, extractedText: extracted.text })
               });
             }
+          } else {
+            const reason = await readErrorMessage(extractRes);
+            setEvents((prev) => [
+              ...prev,
+              { type: "warning", message: `Could not extract text from ${fileItem.file.name}: ${reason}` }
+            ]);
           }
         }
       }
 
       if (textFallback.trim()) {
-        await fetch("/api/documents/text", {
+        const textRes = await fetch("/api/documents/text", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -83,6 +115,10 @@ export function NewApplicationFlow() {
             filename: "pasted-text.txt"
           })
         });
+        if (!textRes.ok) {
+          const reason = await readErrorMessage(textRes);
+          throw new Error(`Could not save fallback text (${textRes.status}): ${reason}`);
+        }
       }
 
       const streamRes = await fetch("/api/agent/run", {
@@ -95,7 +131,8 @@ export function NewApplicationFlow() {
         })
       });
       if (!streamRes.ok || !streamRes.body) {
-        throw new Error("Could not start run");
+        const reason = await readErrorMessage(streamRes);
+        throw new Error(`Could not start run (${streamRes.status}): ${reason}`);
       }
 
       const reader = streamRes.body.getReader();

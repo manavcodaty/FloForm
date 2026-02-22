@@ -119,6 +119,12 @@ Locked stack in this repository:
 - OpenAI Agents SDK JS (`@openai/agents`) + Zod
 - GitHub Models endpoint via OpenAI-compatible client
 
+### Submission Answer
+
+**What languages, frameworks, platforms, cloud services, databases, APIs, or other technologies did you use?**
+
+We built FlōForm with TypeScript (and JavaScript in generated/runtime parts) on Node.js, using Next.js + React for the web app and Tailwind CSS for UI styling. Authentication is handled by Clerk, backend/data functions are built on Convex (including its database), and the AI workflow uses the OpenAI Agents SDK with Zod-validated tools/schemas. For model access, we use the GitHub Models API through an OpenAI-compatible client; document parsing uses `pdf-parse` with optional OCR via `tesseract.js`.
+
 ## Agents SDK Notes
 
 The agent runtime aligns to the local SDK documentation artifact:

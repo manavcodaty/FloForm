@@ -38,20 +38,22 @@ const setFieldValueInputSchema = z.object({
   })
 });
 
-const bulkSetFieldsInputSchema = z.object({
-  items: z.array(
-    z.object({
-      fieldId: z.string(),
-      value: z.union([z.string(), z.number(), z.boolean(), z.null()]),
-      confidence: z.number().min(0).max(1),
-      evidence: z.object({
-        snippet: z.string(),
-        lineRef: z.string(),
-        documentName: z.string()
-      })
-    })
-  )
+const bulkSetFieldItemSchema = z.object({
+  fieldId: z.string(),
+  value: z.union([z.string(), z.number(), z.boolean(), z.null()]),
+  confidence: z.number().min(0).max(1),
+  evidence: z.object({
+    snippet: z.string(),
+    lineRef: z.string(),
+    documentName: z.string()
+  })
 });
+
+const bulkSetFieldsInputSchema = z.object({
+  items: z.array(bulkSetFieldItemSchema)
+});
+
+const bulkSetFieldsLegacyArraySchema = z.array(bulkSetFieldItemSchema);
 
 const requestApprovalInputSchema = z.object({
   kind: z.literal("flagged_field"),
@@ -66,6 +68,18 @@ const requestApprovalInputSchema = z.object({
     })
   )
 });
+
+function parseBulkSetFieldsInput(input: unknown): z.infer<typeof bulkSetFieldsInputSchema> | null {
+  const objectShape = bulkSetFieldsInputSchema.safeParse(input);
+  if (objectShape.success) return objectShape.data;
+
+  const legacyArrayShape = bulkSetFieldsLegacyArraySchema.safeParse(input);
+  if (legacyArrayShape.success) {
+    return { items: legacyArrayShape.data };
+  }
+
+  return null;
+}
 
 function toConvexSafeJson<T>(value: T): T {
   return JSON.parse(
@@ -348,6 +362,35 @@ function asSafeText(value: unknown) {
   }
 }
 
+const MAX_CONVERSATION_DOCUMENT_CHARS = 8000;
+
+function buildModelDocumentContext(rawText: string, maxChars = MAX_CONVERSATION_DOCUMENT_CHARS) {
+  const normalized = rawText.trim();
+  if (normalized.length <= maxChars) {
+    return {
+      text: normalized,
+      truncated: false,
+      originalChars: normalized.length,
+      omittedChars: 0
+    };
+  }
+
+  const marker = "\n\n[...DOCUMENT TEXT TRUNCATED TO FIT MODEL LIMITS...]\n\n";
+  const available = Math.max(0, maxChars - marker.length);
+  const headChars = Math.floor(available * 0.7);
+  const tailChars = available - headChars;
+  const head = normalized.slice(0, headChars).trimEnd();
+  const tail = normalized.slice(normalized.length - tailChars).trimStart();
+  const omittedChars = Math.max(0, normalized.length - head.length - tail.length);
+
+  return {
+    text: `${head}${marker}${tail}`,
+    truncated: true,
+    originalChars: normalized.length,
+    omittedChars
+  };
+}
+
 export async function runCreateApplicationAndFillWorkflow(input: RunWorkflowInput) {
   const Agents = await setupAgentsSdk();
   const runId = input.runId ?? `run_${Date.now()}_${idFrom([input.applicationId])}`;
@@ -369,6 +412,14 @@ export async function runCreateApplicationAndFillWorkflow(input: RunWorkflowInpu
     .filter(Boolean)
     .join("\n\n")
     .trim();
+
+  const modelDocumentContext = buildModelDocumentContext(rawText);
+  if (modelDocumentContext.truncated) {
+    await input.onEvent({
+      type: "warning",
+      message: `Document text was truncated for model limits (${modelDocumentContext.originalChars} -> ${modelDocumentContext.text.length} chars, omitted ${modelDocumentContext.omittedChars}).`
+    });
+  }
 
   if (detectSecrets(rawText)) {
     await convexMutation("klerki:logAuditEvent", {
@@ -436,9 +487,20 @@ export async function runCreateApplicationAndFillWorkflow(input: RunWorkflowInpu
     name: "bulk_set_fields",
     description: "Apply multiple field values to hosted form state. Sensitive/low-confidence values should require approval.",
     parameters: bulkSetFieldsInputSchema,
-    needsApproval: ({ items }: z.infer<typeof bulkSetFieldsInputSchema>) =>
-      items.some((item) => item.confidence < 0.75),
-    execute: async ({ items }: z.infer<typeof bulkSetFieldsInputSchema>) => {
+    needsApproval: (toolInput: unknown) => {
+      const parsed = parseBulkSetFieldsInput(toolInput);
+      if (!parsed || parsed.items.length === 0) return true;
+      return parsed.items.some((item) => item.confidence < 0.75);
+    },
+    execute: async (toolInput: unknown) => {
+      const parsed = parseBulkSetFieldsInput(toolInput);
+      if (!parsed) {
+        throw new Error("bulk_set_fields received invalid arguments. Expected { items: [...] }.");
+      }
+      const { items } = parsed;
+      if (items.length === 0) {
+        return { ok: true, updated: 0 };
+      }
       const result = await convexMutation("klerki:bulkSetDraftFields", {
         applicationId: input.applicationId,
         items: items.map((item) => ({ ...item, updatedBy: "agent" }))
@@ -536,15 +598,29 @@ export async function runCreateApplicationAndFillWorkflow(input: RunWorkflowInpu
   });
 
   const session = Agents.MemorySession ? new Agents.MemorySession() : undefined;
-  const conversationInput = [
-    `Workflow: CREATE_APPLICATION_AND_FILL`,
-    `Application ID: ${input.applicationId}`,
-    `Form schema title: ${SCHOLARSHIP_FORM_SCHEMA.title}`,
-    `Form schema fields: ${JSON.stringify(SCHOLARSHIP_FORM_SCHEMA.fields)}`,
-    `Documents text: ${rawText || "No text extracted"}`,
-    "Steps: extract profile -> save profile -> map fields -> save mapping -> create fill draft -> bulk fill -> request approvals for uncertain fields.",
-    "When calling map_fields, pass profileJson as JSON.stringify(the full profile object)."
-  ].join("\n\n");
+  const compactFormSchemaFields = SCHOLARSHIP_FORM_SCHEMA.fields.map((field) => ({
+    id: field.id,
+    type: field.type,
+    required: field.required,
+    sensitive: Boolean(field.sensitive),
+    options: field.options ?? []
+  }));
+
+  const conversationInput = input.resumeRunId
+    ? [
+        `Workflow: CREATE_APPLICATION_AND_FILL`,
+        `Application ID: ${input.applicationId}`,
+        "This is a resume run after prior interruptions. Continue from saved state and apply provided approvals."
+      ].join("\n\n")
+    : [
+        `Workflow: CREATE_APPLICATION_AND_FILL`,
+        `Application ID: ${input.applicationId}`,
+        `Form schema title: ${SCHOLARSHIP_FORM_SCHEMA.title}`,
+        `Form schema fields (compact): ${JSON.stringify(compactFormSchemaFields)}`,
+        `Documents text: ${modelDocumentContext.text || "No text extracted"}`,
+        "Steps: extract profile -> save profile -> map fields -> save mapping -> create fill draft -> bulk fill -> request approvals for uncertain fields.",
+        "When calling map_fields, pass profileJson as JSON.stringify(the full profile object)."
+      ].join("\n\n");
 
   await input.onEvent({ type: "status", message: "Running supervisor agent with streaming" });
 
