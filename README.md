@@ -1,12 +1,12 @@
-# FlōForm 
+# FlôForm 
 
-FlōForm is an autonomous AI form assistant designed to restore digital independence for people who struggle with complex online workflows.
+FlôForm is an autonomous AI form assistant designed to restore digital independence for people who struggle with complex online workflows.
 
 ## Elevator Pitch
 
 Online forms are one of the biggest hidden barriers to independence.
 
-FlōForm is an autonomous AI agent that completes entire multi-step, multi-page workflows on behalf of the user, securely, accurately, and independently.
+FlôForm is an autonomous AI agent that completes entire multi-step, multi-page workflows on behalf of the user, securely, accurately, and independently.
 
 It navigates complex digital systems, fills in required fields, handles validations, and submits forms with built-in guardian-friendly approval gates for safety.
 
@@ -24,7 +24,7 @@ That same friction can become a hard barrier for many people:
 - One team member's grandmother has Parkinson's disease and faces serious barriers with online forms. Tremors can cause typos, and memory challenges can make complex flows risky and dependent on outside help.
 - Another team member regularly works with neurodivergent individuals who experience overstimulation during long digital workflows.
 
-FlōForm exists to close that gap. Overwhelm, overstimulation, or physical barriers should not stop someone from booking a doctor's appointment, applying for aid, or completing essential life tasks.
+FlôForm exists to close that gap. Overwhelm, overstimulation, or physical barriers should not stop someone from booking a doctor's appointment, applying for aid, or completing essential life tasks.
 
 ## What This Repository Implements Today
 
@@ -58,7 +58,7 @@ flowchart LR
 
 ## Safety Model
 
-FlōForm is intentionally supervised, not "fire-and-forget" automation.
+FlôForm is intentionally supervised, not "fire-and-forget" automation.
 
 - Nothing can be finalized without a `final_submit` approval task marked approved.
 - Any field below the confidence threshold (`0.75`) is gated for approval.
@@ -123,7 +123,7 @@ Locked stack in this repository:
 
 **What languages, frameworks, platforms, cloud services, databases, APIs, or other technologies did you use?**
 
-We built FlōForm with TypeScript (and JavaScript in generated/runtime parts) on Node.js, using Next.js + React for the web app and Tailwind CSS for UI styling. Authentication is handled by Clerk, backend/data functions are built on Convex (including its database), and the AI workflow uses the OpenAI Agents SDK with Zod-validated tools/schemas. For model access, we use the GitHub Models API through an OpenAI-compatible client; document parsing uses `pdf-parse` with optional OCR via `tesseract.js`.
+We built FlôForm with TypeScript (and JavaScript in generated/runtime parts) on Node.js, using Next.js + React for the web app and Tailwind CSS for UI styling. Authentication is handled by Clerk, backend/data functions are built on Convex (including its database), and the AI workflow uses the OpenAI Agents SDK with Zod-validated tools/schemas. For model access, we use the GitHub Models API through an OpenAI-compatible client; document parsing uses `pdf-parse` with optional OCR via `tesseract.js`.
 
 ## Agents SDK Notes
 
